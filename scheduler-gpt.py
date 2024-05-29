@@ -225,8 +225,9 @@ def rr(processes, run_for, quantum):
     return log, metrics
 
 def write_output(file_name, log, metrics, algorithm, quantum, run_for):
-    output_file = file_name.replace('.in', '.out')  # Added '_test' before the '.out' extension
-    with open(output_file, 'w') as file:
+    # Generate .out file
+    output_file_txt = file_name.replace('.in', '.out')
+    with open(output_file_txt, 'w') as file:
         file.write(f"{len(metrics):>3} processes\n")  # Adjusted space to ensure 3-character width
         if algorithm == 'fcfs':
             file.write(f"Using First-Come First-Served\n")
@@ -240,6 +241,42 @@ def write_output(file_name, log, metrics, algorithm, quantum, run_for):
         file.write(f"Finished at time {run_for:>3}\n\n")
         for name, metric in sorted(metrics.items()):
             file.write(f"{name:<2} wait {metric['wait']:>3} turnaround {metric['turnaround']:>3} response {metric['response']:>3}\n")
+    
+    # Generate .html file
+    output_file_html = file_name.replace('.in', '.html')
+    with open(output_file_html, 'w') as file:
+        file.write("<html><body>\n")
+        file.write(f"<h2>{len(metrics)} processes</h2>\n")
+        if algorithm == 'fcfs':
+            file.write(f"<h3>Using First-Come First-Served</h3>\n")
+        elif algorithm == 'sjf':
+            file.write(f"<h3>Using preemptive Shortest Job First</h3>\n")
+        elif algorithm == 'rr':
+            file.write(f"<h3>Using Round-Robin</h3>\n")
+            file.write(f"<p>Quantum {quantum}</p>\n")
+        
+        file.write("<table border='1'>\n")
+        file.write("<tr><th>Time</th><th>Event</th></tr>\n")
+        for entry in log:
+            if "arrived" in entry[1]:
+                file.write(f"<tr><td>{entry[0]:>3}</td><td style='color:green'>{entry[1]}</td></tr>\n")  # Green for arrival
+            elif "selected" in entry[1]:
+                file.write(f"<tr><td>{entry[0]:>3}</td><td style='color:blue'>{entry[1]}</td></tr>\n")  # Blue for selection
+            elif "finished" in entry[1]:
+                file.write(f"<tr><td>{entry[0]:>3}</td><td style='color:red'>{entry[1]}</td></tr>\n")  # Red for finish
+            else:
+                file.write(f"<tr><td>{entry[0]:>3}</td><td>{entry[1]}</td></tr>\n")  # Default color for idle
+        file.write("</table>\n")
+
+        file.write(f"<p>Finished at time {run_for}</p>\n")
+
+        file.write("<table border='1'>\n")
+        file.write("<tr><th>Process</th><th>Wait Time</th><th>Turnaround Time</th><th>Response Time</th></tr>\n")
+        for name, metric in sorted(metrics.items()):
+            file.write(f"<tr><td>{name}</td><td>{metric['wait']}</td><td>{metric['turnaround']}</td><td>{metric['response']}</td></tr>\n")
+        file.write("</table>\n")
+
+        file.write("</body></html>\n")
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
