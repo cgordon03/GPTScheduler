@@ -1,0 +1,35 @@
+<html><body>
+<h2>5 processes</h2>
+<h3>Using preemptive Shortest Job First</h3>
+<table border='1'>
+<tr><th>Time</th><th>Event</th></tr>
+<tr><td>  0</td><td style='color:green'>P1 arrived</td></tr>
+<tr><td>  0</td><td style='color:blue'>P1 selected (burst   5)</td></tr>
+<tr><td>  2</td><td style='color:green'>P2 arrived</td></tr>
+<tr><td>  5</td><td style='color:red'>P1 finished</td></tr>
+<tr><td>  5</td><td style='color:blue'>P2 selected (burst   9)</td></tr>
+<tr><td>  7</td><td style='color:green'>P4 arrived</td></tr>
+<tr><td>  7</td><td style='color:blue'>P4 selected (burst   4)</td></tr>
+<tr><td>  9</td><td style='color:green'>P3 arrived</td></tr>
+<tr><td> 11</td><td style='color:green'>P5 arrived</td></tr>
+<tr><td> 11</td><td style='color:red'>P4 finished</td></tr>
+<tr><td> 11</td><td style='color:blue'>P5 selected (burst   1)</td></tr>
+<tr><td> 12</td><td style='color:red'>P5 finished</td></tr>
+<tr><td> 12</td><td style='color:blue'>P3 selected (burst   3)</td></tr>
+<tr><td> 15</td><td style='color:red'>P3 finished</td></tr>
+<tr><td> 15</td><td style='color:blue'>P2 selected (burst   7)</td></tr>
+<tr><td> 22</td><td style='color:red'>P2 finished</td></tr>
+<tr><td> 22</td><td>Idle</td></tr>
+<tr><td> 23</td><td>Idle</td></tr>
+<tr><td> 24</td><td>Idle</td></tr>
+</table>
+<p>Finished at time 25</p>
+<table border='1'>
+<tr><th>Process</th><th>Wait Time</th><th>Turnaround Time</th><th>Response Time</th></tr>
+<tr><td>P1</td><td>0</td><td>5</td><td>0</td></tr>
+<tr><td>P2</td><td>11</td><td>20</td><td>3</td></tr>
+<tr><td>P3</td><td>3</td><td>6</td><td>3</td></tr>
+<tr><td>P4</td><td>0</td><td>4</td><td>0</td></tr>
+<tr><td>P5</td><td>0</td><td>1</td><td>0</td></tr>
+</table>
+</body></html>
