@@ -1,3 +1,6 @@
+
+#Written by Clayton with ChatGPT
+
 import sys
 
 class Process:
