@@ -1,7 +1,6 @@
 #Amoy's code
 #fixed version
 import sys
-import os
 from collections import deque
 
 class Process:
@@ -60,9 +59,6 @@ def parse_input(file_name):
     return process_count, run_for, use, quantum, processes
 
 def calculate_metrics(processes):
-    total_turnaround_time = 0
-    total_wait_time = 0
-    total_response_time = 0
     metrics = {}
 
     for process in processes:
@@ -76,29 +72,39 @@ def calculate_metrics(processes):
             'response': response_time
         }
 
-        total_turnaround_time += turnaround_time
-        total_wait_time += wait_time
-        total_response_time += response_time
-
     return metrics
 
 def fifo_scheduler(processes, run_for):
     time = 0
     process_queue = deque(sorted(processes, key=lambda p: p.arrival))
     output = []
+    arrived_processes = set()
+    last_selected_process = None
 
     while time < run_for:
+        while process_queue and process_queue[0].arrival <= time:
+            arrived_process = process_queue.popleft()
+            if arrived_process.name not in arrived_processes:
+                output.append(f"Time {time} : {arrived_process.name} arrived")
+                arrived_processes.add(arrived_process.name)
+            process_queue.appendleft(arrived_process)
+            break
+
         if process_queue and process_queue[0].arrival <= time:
             process = process_queue.popleft()
             if process.start_time == -1:
                 process.start_time = time
                 process.response_time = time
-            output.append(f"Time {time} : {process.name} selected (burst {process.burst})")
+            if last_selected_process != process:
+                output.append(f"Time {time} : {process.name} selected (burst {process.burst})")
+                last_selected_process = process
             time += process.burst
             process.completion_time = time
             output.append(f"Time {time} : {process.name} finished")
+            last_selected_process = None
         else:
             output.append(f"Time {time} : Idle")
+            last_selected_process = None
             time += 1
 
     return output, processes
@@ -108,26 +114,37 @@ def sjf_scheduler(processes, run_for):
     process_queue = sorted(processes, key=lambda p: (p.arrival, p.burst))
     ready_queue = []
     output = []
+    arrived_processes = set()
+    last_selected_process = None
 
     while time < run_for:
         while process_queue and process_queue[0].arrival <= time:
-            ready_queue.append(process_queue.pop(0))
+            arrived_process = process_queue.pop(0)
+            if arrived_process.name not in arrived_processes:
+                output.append(f"Time {time} : {arrived_process.name} arrived")
+                arrived_processes.add(arrived_process.name)
+            ready_queue.append(arrived_process)
+
         if ready_queue:
             ready_queue.sort(key=lambda p: p.remaining_burst)
             process = ready_queue.pop(0)
             if process.start_time == -1:
                 process.start_time = time
                 process.response_time = time
-            output.append(f"Time {time} : {process.name} selected (burst {process.remaining_burst})")
+            if last_selected_process != process:
+                output.append(f"Time {time} : {process.name} selected (burst {process.remaining_burst})")
+                last_selected_process = process
             time += 1
             process.remaining_burst -= 1
             if process.remaining_burst == 0:
                 process.completion_time = time
                 output.append(f"Time {time} : {process.name} finished")
+                last_selected_process = None
             else:
                 ready_queue.append(process)
         else:
             output.append(f"Time {time} : Idle")
+            last_selected_process = None
             time += 1
 
     return output, processes
@@ -137,26 +154,53 @@ def rr_scheduler(processes, run_for, quantum):
     process_queue = deque(sorted(processes, key=lambda p: p.arrival))
     ready_queue = deque()
     output = []
+    arrived_processes = set()
+    last_selected_process = None
 
     while time < run_for:
+        # Add processes to the ready queue as they arrive
         while process_queue and process_queue[0].arrival <= time:
-            ready_queue.append(process_queue.popleft())
+            arrived_process = process_queue.popleft()
+            if arrived_process.name not in arrived_processes:
+                output.append(f"Time {time} : {arrived_process.name} arrived")
+                arrived_processes.add(arrived_process.name)
+            ready_queue.append(arrived_process)
+
         if ready_queue:
             process = ready_queue.popleft()
             if process.start_time == -1:
                 process.start_time = time
                 process.response_time = time
-            time_slice = min(quantum, process.remaining_burst)
+            # Always print when a process is selected to run
             output.append(f"Time {time} : {process.name} selected (burst {process.remaining_burst})")
-            time += time_slice
-            process.remaining_burst -= time_slice
+            last_selected_process = process
+
+            time_slice = min(quantum, process.remaining_burst)
+            for _ in range(time_slice):
+                if time >= run_for:
+                    break
+                time += 1
+                process.remaining_burst -= 1
+                # Check for new arrivals during the quantum
+                while process_queue and process_queue[0].arrival <= time:
+                    arrived_process = process_queue.popleft()
+                    if arrived_process.name not in arrived_processes:
+                        output.append(f"Time {time} : {arrived_process.name} arrived")
+                        arrived_processes.add(arrived_process.name)
+                    ready_queue.append(arrived_process)
+                if process.remaining_burst == 0:
+                    break
+
             if process.remaining_burst == 0:
                 process.completion_time = time
                 output.append(f"Time {time} : {process.name} finished")
+                last_selected_process = None
             else:
                 ready_queue.append(process)
+                last_selected_process = process
         else:
             output.append(f"Time {time} : Idle")
+            last_selected_process = None
             time += 1
 
     return output, processes
@@ -203,3 +247,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+#python main.py inputFile.in
+#python main.py -i input.in
