@@ -82,7 +82,7 @@ def fcfs(processes, run_for):
                 process.start_time = time
                 process.response_time = time
             if last_selected_process != process:
-                output.append((time, f'{process.name} selected (burst {process.burst})'))
+                output.append((time, f'{process.name} selected (burst {process.burst:3})'))
                 last_selected_process = process
             time += process.burst
             process.finish_time = time
