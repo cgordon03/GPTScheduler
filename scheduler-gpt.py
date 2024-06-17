@@ -1,22 +1,14 @@
-#Combination of individual projects
-#Written using ChatGPT
-
 import sys
-import re
-from collections import deque
 
-#Harper's data structure for process
 class Process:
     def __init__(self, name, arrival, burst):
         self.name = name
         self.arrival = arrival
         self.burst = burst
         self.remaining_burst = burst
-        self.start_time = -1
-        self.finish_time = 0
-        self.wait_time = 0
-        self.response_time = -1
-        self.turnaround_time = 0
+        self.start_time = None
+        self.end_time = None
+        self.original_burst = burst
 
 def parse_input(file_name):
     with open(file_name, 'r') as file:
@@ -43,192 +35,170 @@ def parse_input(file_name):
 
     return process_count, run_for, algorithm, quantum, processes
 
-#Amoy's calculate_metrics
-#Calculates metrics for FCFS and SJF
 def calculate_metrics(processes):
     metrics = {}
-
     for process in processes:
-        turnaround_time = process.finish_time - process.arrival
-        wait_time = turnaround_time - process.burst
-        response_time = process.response_time - process.arrival
-
+        turnaround_time = process.end_time - process.arrival if process.end_time is not None else 0
+        wait_time = turnaround_time- process.original_burst if process.start_time is not None else 0
+        response_time = process.start_time - process.arrival if process.start_time is not None else 0
         metrics[process.name] = {
             'wait': wait_time,
             'turnaround': turnaround_time,
             'response': response_time
         }
-
     return metrics
 
-
-#Amoy's FCFS
 def fcfs(processes, run_for):
-    time = 0
-    process_queue = deque(sorted(processes, key=lambda p: p.arrival))
-    output = []
-    arrived_processes = set()
-    last_selected_process = None
-
-    while time < run_for:
-        while process_queue and process_queue[0].arrival <= time:
-            arrived_process = process_queue.popleft()
-            if arrived_process.name not in arrived_processes:
-                output.append((time, f'{arrived_process.name} arrived'))
-                arrived_processes.add(arrived_process.name)
-            process_queue.appendleft(arrived_process)
-            break
-
-        if process_queue and process_queue[0].arrival <= time:
-            process = process_queue.popleft()
-            if process.start_time == -1:
-                process.start_time = time
-                process.response_time = time
-            if last_selected_process != process:
-                output.append((time, f'{process.name} selected (burst {process.burst:3})'))
-                last_selected_process = process
-            time += process.burst
-            process.finish_time = time
-            output.append((time, f'{process.name} finished'))
-            last_selected_process = None
-        else:
-            output.append((time, 'Idle'))
-            last_selected_process = None
-            time += 1
-
-    metrics = calculate_metrics(processes)   
-
-    return output, metrics
-
-#Harper's SJF
-def sjf(processes, run_for):
+    processes.sort(key=lambda p: p.arrival)
     current_time = 0
-    completed = 0
-    n = len(processes)
-    processes.sort(key=lambda x: x.arrival)
-    logs = []
-    current_process = None
-    arrival_set = set()
-
-    while completed != n or current_time < run_for:
-
-        #Adds newly arrived processes
-        for process in processes:
-            if process.arrival == current_time and process.name not in arrival_set:
-                logs.append((current_time, f'{process.name} arrived'))
-                arrival_set.add(process.name)
-
-        idx = -1
-        min_remaining_time = float('inf')
-
-        for i in range(n):
-            if processes[i].arrival <= current_time and processes[i].remaining_burst > 0:
-                if processes[i].remaining_burst < min_remaining_time:
-                    min_remaining_time = processes[i].remaining_burst
-                    idx = i
-                elif processes[i].remaining_burst == min_remaining_time:
-                    if processes[i].arrival < processes[idx].arrival:
-                        idx = i
-
-        #Uses idx to run through each process within processes
-        if idx != -1:
-            if processes[idx] != current_process:
-                current_process = processes[idx]
-                logs.append((current_time, f'{current_process.name} selected (burst {current_process.remaining_burst:3})'))
-
-            #Updates processes start time and response time
-            if processes[idx].start_time == -1:
-                processes[idx].start_time = current_time
-                processes[idx].response_time = current_time
-
-            processes[idx].remaining_burst -= 1
-            current_time += 1
-
-            #If process finishes running
-            if processes[idx].remaining_burst == 0:
-                processes[idx].finish_time = current_time
-                completed += 1
-                logs.append((current_time, f'{current_process.name} finished'))
-        else:
-            logs.append((current_time, 'Idle'))
-            current_time += 1
+    log = []
+    queue = []
+    running_process = None
+    temp_burst = 0
 
     while current_time < run_for:
-        logs.append((current_time, 'Idle'))
+
+        #Check for new arrivals
+        arrivals = [p for p in processes if p.arrival == current_time]
+
+        for process in arrivals:
+            log.append((current_time, f'{process.name} arrived'))
+            queue.append(process)
+        
+        #Check if running process finishes
+        if running_process and running_process.burst == 0:
+            running_process.end_time = current_time
+            log.append((current_time, f'{running_process.name} finished'))
+            running_process = None
+
+        #If there is no running process, select one from the queue
+        if running_process is None and queue:
+            running_process = queue.pop(0)
+            log.append((current_time, f'{running_process.name} selected (burst {running_process.burst:>3})'))
+            if running_process.start_time is None:
+                running_process.start_time = current_time
+
+        #Execute the running process
+        if running_process:
+            running_process.burst -= 1
+
+        #Log idle time only if no process is running and no new arrivals
+        if running_process is None and not arrivals and not queue:
+            log.append((current_time, 'Idle'))
+
         current_time += 1
 
-    metrics = calculate_metrics(processes)    
+    #Ensure the log shows idle times until the end of the run time
+    while current_time < run_for:
+        log.append((current_time, 'Idle'))
+        current_time += 1
 
-    return logs, metrics
+    metrics = calculate_metrics(processes)
+    return log, metrics
 
-#Clayton's RR
+def sjf(processes, run_for):
+    processes.sort(key=lambda p: p.arrival)
+    current_time = 0
+    log = []
+    ready_queue = []
+    running_process = None
+
+    while current_time < run_for:
+        #Check for new arrivals and log them first
+        arrivals = [p for p in processes if p.arrival == current_time]
+        for process in arrivals:
+            log.append((current_time, f'{process.name} arrived'))
+            ready_queue.append(process)
+            ready_queue.sort(key=lambda p: p.burst)
+
+        #Execute the running process and handle completion
+        if running_process:
+            running_process.burst -= 1
+            if running_process.burst == 0:
+                running_process.end_time = current_time
+                log.append((current_time, f'{running_process.name} finished'))
+                running_process = None
+
+        #Handle preemption if a new process arrives with shorter burst time
+        if running_process and ready_queue and ready_queue[0].burst < running_process.burst:
+            ready_queue.append(running_process)
+            ready_queue.sort(key=lambda p: p.burst)
+            running_process = ready_queue.pop(0)
+            log.append((current_time, f'{running_process.name} selected (burst {running_process.burst:>3})'))
+
+        #Select the next process if none is running 
+        if not running_process and ready_queue:
+            running_process = ready_queue.pop(0)
+            log.append((current_time, f'{running_process.name} selected (burst {running_process.burst:>3})'))
+            if running_process.start_time is None:
+                running_process.start_time = current_time
+
+        #Log idle time if no process is running and no new arrivals
+        if not running_process and not ready_queue and not arrivals:
+            log.append((current_time, 'Idle'))
+
+        current_time += 1
+    
+    #Ensure the log shows idle times until the end of the run time
+    while current_time < run_for:
+        log.append((current_time, 'Idle'))
+        current_time += 1
+
+    metrics = calculate_metrics(processes)
+    return log, metrics
+
 def rr(processes, run_for, quantum):
     processes.sort(key=lambda p: p.arrival)
     current_time = 0
     log = []
     queue = []
-    metrics = {p.name: {'wait': 0, 'turnaround': 0, 'response': None} for p in processes}
     time_slice = 0
     running_process = None
-    burst_times = {p.name: p.burst for p in processes}  # Store original burst times
 
     while current_time < run_for:
-        # Check for new arrivals
+
+        #Check for new arrivals
         arrivals = [p for p in processes if p.arrival == current_time]
         for process in arrivals:
             log.append((current_time, f'{process.name} arrived'))
             queue.append(process)
 
-        # Handle time slice expiration or process completion
+        #Handle time slice expiration or process completion
         if running_process and (time_slice == quantum or running_process.burst == 0):
             if running_process.burst > 0:
                 queue.append(running_process)
             else:
+                running_process.end_time = current_time
                 log.append((current_time, f'{running_process.name} finished'))
-                metrics[running_process.name]['turnaround'] = current_time - running_process.arrival
             running_process = None
             time_slice = 0
 
-        # Select the next process if none is running
+        #Select the next process if none is running
         if not running_process and queue:
             running_process = queue.pop(0)
             log.append((current_time, f'{running_process.name} selected (burst {running_process.burst:>3})'))
-            if metrics[running_process.name]['response'] is None:
-                metrics[running_process.name]['response'] = current_time - running_process.arrival
             if running_process.start_time is None:
                 running_process.start_time = current_time
 
-        # Execute the running process
+        #Execute the running process
         if running_process:
             running_process.burst -= 1
             time_slice += 1
 
-        # Log idle time if no process is running and no new arrivals
+        #Log idle time if no process is running and no new arrivals
         if not running_process and not queue and not arrivals:
             log.append((current_time, 'Idle'))
 
         current_time += 1
-
-    # Ensure the log shows idle times until the end of the run time
+    
+    #Ensure the log shows idle times until the end of the run time
     while current_time < run_for:
         log.append((current_time, 'Idle'))
         current_time += 1
 
-    # Calculate wait times correctly
-    for process in processes:
-        turnaround = metrics[process.name]['turnaround']
-        burst = burst_times[process.name]
-        response = metrics[process.name]['response']
-        wait = turnaround - burst
-        metrics[process.name] = {
-            'wait': wait,
-            'turnaround': turnaround,
-            'response': response
-        }
-
+    metrics = calculate_metrics(processes)
     return log, metrics
 
-#Clayton's write output
 def write_output(file_name, log, metrics, algorithm, quantum, run_for):
     # Generate .out file
     output_file_txt = file_name.replace('.in', '.out')
